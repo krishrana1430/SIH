@@ -40,8 +40,9 @@ cd weather-gpt
 cp .env.docker .env
 
 # Edit the file and add your API keys
-# On Windows: notepad .env
-# On Mac/Linux: nano .env
+# Windows: notepad .env
+# Mac/Linux: nano .env
+# Or use any text editor you prefer
 ```
 
 **Edit these lines in `.env`:**
@@ -106,12 +107,14 @@ Open your browser and go to:
 ### Issue 2: "Port 8000 already in use"
 **Solution:** Stop other services on that port
 ```bash
-# Windows
+# Windows (PowerShell)
 netstat -ano | findstr :8000
 taskkill /PID <process-id> /F
 
 # Mac/Linux
 lsof -ti:8000 | xargs kill -9
+
+# Or change the port in docker-compose.yml
 ```
 
 ### Issue 3: "Build failed" or errors during docker-compose
@@ -201,9 +204,11 @@ python --version  # Should be 3.11 or higher
 # Create virtual environment
 python -m venv venv
 
-# Activate it
-# Windows:
+# Activate virtual environment
+# Windows (Command Prompt):
 venv\Scripts\activate
+# Windows (PowerShell):
+venv\Scripts\Activate.ps1
 # Mac/Linux:
 source venv/bin/activate
 
@@ -212,7 +217,7 @@ pip install -r requirements.txt
 
 # Copy environment file
 cp .env.example .env
-# Edit .env and add API keys
+# Edit .env and add API keys (use any text editor)
 
 # Start backend
 python start_server.py
@@ -225,14 +230,18 @@ Backend will run on http://localhost:8000
 ```bash
 cd frontend/web
 
-# Install Node.js 18+ first
-node --version  # Should be 18 or higher
+# Install Node.js 20+ first
+node --version  # Should be 20 or higher
 
 # Install dependencies
 npm install
 
 # Create environment file
+# Windows (PowerShell):
+Set-Content .env.local "NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1"
+# Mac/Linux:
 echo "NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1" > .env.local
+# Or create manually with any text editor
 
 # Start frontend
 npm run dev
@@ -373,7 +382,7 @@ docker stats
 
 ## Support
 
-- **Documentation:** Check `README.md` and `DOCKER_DEPLOYMENT.md`
+- **Documentation:** Check `README.md` and `SETUP.md`
 - **API Docs:** http://localhost:8000/docs (when running)
 - **Test Script:** `python system_check.py`
 

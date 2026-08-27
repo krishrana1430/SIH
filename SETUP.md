@@ -61,8 +61,9 @@ Complete setup and deployment guide for WeatherGPT.
 ### Backend Setup
 
 **Requirements:**
-- Python 3.11 or higher
+- Python 3.11+ (3.11, 3.12 recommended)
 - pip package manager
+- Virtual environment support
 
 **Steps:**
 
@@ -71,9 +72,11 @@ Complete setup and deployment guide for WeatherGPT.
    python -m venv venv
    
    # Activate virtual environment
-   # On Windows:
+   # Windows (Command Prompt):
    venv\Scripts\activate
-   # On Mac/Linux:
+   # Windows (PowerShell):
+   venv\Scripts\Activate.ps1
+   # Mac/Linux:
    source venv/bin/activate
    ```
 
@@ -102,8 +105,8 @@ Backend will run on http://localhost:8000
 ### Frontend Setup
 
 **Requirements:**
-- Node.js 20 or higher
-- npm package manager
+- Node.js 20+ (20 LTS recommended)
+- npm 10+ package manager
 
 **Steps:**
 
@@ -119,7 +122,11 @@ Backend will run on http://localhost:8000
 
 3. **Configure environment**
    ```bash
+   # Windows (PowerShell):
+   Set-Content .env.local "NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1"
+   # Mac/Linux:
    echo "NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1" > .env.local
+   # Or create the file manually with any text editor
    ```
 
 4. **Start development server**
@@ -289,7 +296,7 @@ CORS_ORIGINS=["https://your-domain.com"]
 **Solution:**
 ```bash
 # Find process using the port
-# Windows:
+# Windows (PowerShell):
 netstat -ano | findstr :8000
 taskkill /PID <process-id> /F
 
@@ -320,6 +327,9 @@ curl http://localhost:8000/health
 # Ensure frontend URL is in CORS_ORIGINS
 
 # Verify .env.local in frontend/web/
+# Windows (PowerShell):
+Set-Content frontend/web/.env.local "NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1"
+# Mac/Linux:
 echo "NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1" > frontend/web/.env.local
 
 # Restart frontend
