@@ -27,6 +27,7 @@ frontend/web/out/
 .idea/
 *.swp
 *.swo
+.claude/
 
 # Docker
 *.log
