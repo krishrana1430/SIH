@@ -362,10 +362,9 @@ docker stats
 1. **LLM Integration:** Groq + Gemini fallback
 2. **Weather Data:** Live Open-Meteo API
 3. **Conversation History:** Check database persistence
-4. **Voice Features:** STT/TTS working
-5. **SMS Alerts:** Mock service configured
-6. **Multilingual:** 10 Indian languages
-7. **Role-Aware:** Different responses per role
+4. **Multilingual:** 10 Indian languages
+5. **Role-Aware:** Different responses per role
+6. **Alert System:** Server-side severity classification
 
 ---
 

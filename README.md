@@ -37,22 +37,12 @@ AI-powered weather forecasting assistant with multilingual support and role-base
 - **SQLite for demo**: Easy upgrade path to PostgreSQL for production
 - 📖 **[Complete Authentication Documentation](./AUTHENTICATION.md)**
 
-### Voice Capabilities (Rural Accessibility)
-- **Speech-to-Text**: Groq Whisper for accurate transcription in 10 Indian languages
-- **Text-to-Speech**: Web Speech API (client-side) + OpenAI TTS (premium)
-- **Low-Bandwidth Optimized**: Opus compression (70-85% size reduction) for 2G/3G networks
-- **Hands-free Operation**: Complete voice-driven weather queries and responses
-- **Thin Adapter Pattern**: Voice → text → existing API → text → voice (no parallel backend)
-- 📖 **[Complete Voice Features Documentation](./VOICE_FEATURES.md)**
-
-### Extreme Weather Alerts & Early Warning System
+### Weather Alerts System
 - **Server-side severity classification** with configurable thresholds
 - **Proactive monitoring** of weather conditions with automatic alert generation
-- **Multi-channel dissemination**: Push, SMS, Email, WhatsApp, Voice/IVR (architecture ready)
 - **5 severity levels**: Normal, Watch, Warning, Severe, Extreme
 - **Alert types**: Heatwave, Heavy Rain, High Wind, Frost/Freeze, Storm
-- **Real-time breach detection** and subscriber notification
-- **Multi-language SMS support**
+- **Real-time breach detection** and alert storage in database
 
 ### Real-Time Weather Data
 - Current conditions and forecasts
@@ -107,14 +97,12 @@ WeatherGPT
 │   │   ├── Tier 1: Groq (Primary - fast, free tier)
 │   │   └── Tier 2: Gemini (Fallback - reliable, free tier)
 │   ├── Weather Service (Open-Meteo API)
-│   ├── Voice Service (Groq Whisper)
-│   └── SMS Service (Twilio/Mock)
+│   └── Alert Monitoring Service
 ├── Frontend (Next.js + React)
 │   ├── Chat Interface
-│   ├── Weather Dashboard
-│   └── Voice Input/Output
+│   └── Weather Dashboard
 └── Database (SQLite)
-    └── Conversation History & Encrypted User Keys
+    └── User Data & Encrypted API Keys
 ```
 
 ### LLM Two-Tier Fallback Strategy

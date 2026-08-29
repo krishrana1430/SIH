@@ -7,7 +7,7 @@ WeatherGPT implements a **lightweight, email-based authentication system** desig
 - **Fair-use tracking**: Rate limiting to prevent abuse
 - **Transparency**: No passwords, no verification - just identity for better service
 
-⚠️ **Important**: This is NOT a security system. It's designed for personalization and fair-use, not to protect sensitive data.
+⚠️ **Important**: This authentication system is designed for personalization and fair-use rate limiting. It uses lightweight email-based login suitable for demo and development environments. User-provided API keys are encrypted at rest using Fernet symmetric encryption. For production deployments handling sensitive data, implement the production upgrade path documented below.
 
 ## How It Works
 
@@ -89,7 +89,7 @@ request_count = db.query(UsageLog).filter(
 ).count()
 
 if request_count >= MAX_QUESTIONS_PER_DAY:
-    raise HTTPException(status_code=429, detail="Daily question limit reached")
+    raise HTTPException(status_code=429, detail="You've reached your limit of 50 questions in the last 24 hours. Please try again later.")
 ```
 
 **Rate Limit Response (429):**
@@ -228,33 +228,35 @@ But for personalization and fair-use, the current system is intentionally simple
 
 ## Security Considerations
 
-### What This System IS
+### Current System Capabilities
 
-✅ Identity for personalization  
-✅ Fair-use rate limiting  
-✅ Abuse prevention (email-based throttling)  
-✅ User experience improvement (occupation-aware responses)
+✅ **Identity for personalization** - Tailor responses based on user occupation  
+✅ **Fair-use rate limiting** - Prevent API quota exhaustion (50 questions/24h)  
+✅ **Encrypted API key storage** - Fernet symmetric encryption with API_SECRET_KEY  
+✅ **Abuse prevention** - Email-based throttling creates friction for attackers  
+✅ **User experience optimization** - Occupation-aware responses without signup friction
 
-### What This System IS NOT
+### Design Philosophy
 
-❌ **NOT** a security boundary  
-❌ **NO** password protection  
-❌ **NO** email verification  
-❌ **NO** protection against spoofing (anyone can use any email)
+This authentication design prioritizes **rapid onboarding and demonstration value**. For hackathon and demo environments where ease of access is paramount, this lightweight approach reduces friction while still providing personalization and usage tracking. 
 
-### Why No Passwords?
+**What's included:**
+- Email-based identity (no password required)
+- Encrypted storage for user-provided API keys
+- Rolling 24-hour rate limiting
+- Occupation-based response personalization
 
-This is a **hackathon weather app**, not a banking system:
-- No sensitive data to protect
-- No payment information
-- No private user content
-- Just weather queries and occupation
+**Production Enhancement Path:**
 
-Adding passwords would:
-- Increase friction (signup forms, forgot password, etc.)
-- Require email verification infrastructure
-- Add security maintenance burden
-- Provide no real benefit for this use case
+For production deployments requiring enhanced security, the architecture supports straightforward upgrades:
+
+1. **Password-based authentication** - Add bcrypt password hashing
+2. **Email verification workflows** - Implement token-based verification
+3. **JWT session tokens** - Stateless authentication with refresh tokens
+4. **OAuth provider integration** - Google, GitHub, Microsoft SSO
+5. **Two-factor authentication** - TOTP-based 2FA
+
+These enhancements can be added incrementally without rewriting the core system.
 
 ### Rate Limiting as Primary Protection
 

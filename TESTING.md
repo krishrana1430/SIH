@@ -331,7 +331,7 @@ with patch('backend.services.chat_service.chat_service.extract_intent') as mock_
 - LLM service calls (Groq, Gemini, Ollama)
 - Weather API (Open-Meteo)
 - Geocoding service (Nominatim)
-- SMS service (Twilio)
+- Alert monitoring system
 
 ### Services NOT Mocked
 
@@ -460,8 +460,7 @@ pytest backend/tests/ --durations=10
 
 - 🚧 **Rate Limiting**: 50 questions/day enforcement
 - 🚧 **Login Flow**: Email + occupation authentication
-- 🚧 **Voice Processing**: Speech-to-text pipeline
-- 🚧 **SMS Alerts**: Alert delivery and retries
+- 🚧 **Alert Delivery**: Push notification system
 - 🚧 **Multi-language**: Response generation in 10 languages
 - 🚧 **Frontend E2E**: Playwright browser tests
 
@@ -469,7 +468,7 @@ pytest backend/tests/ --durations=10
 
 Will use Playwright for full browser automation:
 - Login flow with email
-- Voice input/output
+- Real-time updates via WebSocket
 - Chat interface interaction
 - Rate limit enforcement in UI
 - Multi-language switching
