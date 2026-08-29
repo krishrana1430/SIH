@@ -34,18 +34,18 @@ export default function LocationSelector({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="w-full justify-between"
+          className="w-full justify-between bg-white dark:bg-gray-900 border-gray-200 dark:border-yellow-500/20 hover:bg-yellow-50 dark:hover:bg-yellow-900/10"
         >
           <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">
+            <MapPin className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm text-gray-900 dark:text-white">
               {selectedLocation || "Select Location"}
             </span>
           </div>
-          <ChevronDown className="w-4 h-4 text-gray-500" />
+          <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent className="w-[300px] p-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-yellow-500/20" align="start">
         <div className="max-h-[300px] overflow-y-auto">
           {locations.map((location) => (
             <button
@@ -54,16 +54,16 @@ export default function LocationSelector({
                 onSelect(location.name)
                 setIsOpen(false)
               }}
-              className={`w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
+              className={`w-full px-4 py-3 text-left hover:bg-yellow-50 dark:hover:bg-yellow-900/10 transition-colors ${
                 selectedLocation === location.name
-                  ? 'bg-blue-50 dark:bg-blue-900/20'
+                  ? 'bg-yellow-100 dark:bg-yellow-900/20'
                   : ''
               }`}
             >
               <div className="font-medium text-gray-900 dark:text-white">
                 {location.name}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-200">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
                 {location.state}
               </div>
             </button>

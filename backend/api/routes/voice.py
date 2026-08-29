@@ -43,8 +43,13 @@ async def get_voice_info():
         ],
         "supported_languages": voice_service.get_supported_languages(),
         "audio_formats": {
-            "input": ["wav", "mp3", "ogg", "flac", "webm"],
-            "output": ["mp3"]
+            "input": ["wav", "mp3", "ogg", "flac", "webm", "m4a", "opus"],
+            "output": ["mp3", "opus"]
+        },
+        "low_bandwidth": {
+            "compression": "opus codec at 16kbps",
+            "typical_reduction": "70-85%",
+            "recommended_for": "Rural areas with 2G/3G connectivity"
         },
         "providers": {
             "stt": "groq-whisper (fallback: mock)",
@@ -58,14 +63,16 @@ async def get_voice_info():
 @router.post("/stt")
 async def speech_to_text(
     audio_file: UploadFile = File(...),
-    language: str = Form(default="en")
+    language: str = Form(default="en"),
+    compress: bool = Form(default=True)
 ):
     """
     Convert speech to text using Groq Whisper.
 
     Args:
-        audio_file: Audio file (WAV, MP3, OGG, FLAC, WebM)
+        audio_file: Audio file (WAV, MP3, OGG, FLAC, WebM, Opus)
         language: Language code (en, hi, ta, te, bn, mr, kn, gu, ml, pa, or auto)
+        compress: Enable audio compression for low bandwidth (default: True)
 
     Returns:
         Transcribed text and metadata
@@ -73,13 +80,14 @@ async def speech_to_text(
     Example:
         curl -X POST /api/v1/voice/stt \\
           -F "audio_file=@recording.wav" \\
-          -F "language=hi"
+          -F "language=hi" \\
+          -F "compress=true"
     """
     if not audio_file:
         raise HTTPException(status_code=400, detail="Audio file is required")
 
     # Validate file type
-    allowed_extensions = ["wav", "mp3", "ogg", "flac", "webm", "m4a"]
+    allowed_extensions = ["wav", "mp3", "ogg", "flac", "webm", "m4a", "opus"]
     file_ext = audio_file.filename.split(".")[-1].lower() if "." in audio_file.filename else ""
 
     if file_ext not in allowed_extensions:
@@ -100,7 +108,7 @@ async def speech_to_text(
                 detail="Audio file too large. Maximum size: 25MB"
             )
 
-        logger.info(f"Processing STT for {audio_file.filename} ({file_size} bytes, language={language})")
+        logger.info(f"Processing STT for {audio_file.filename} ({file_size} bytes, language={language}, compress={compress})")
 
         # Transcribe audio
         transcription = await voice_service.transcribe_audio(
@@ -120,7 +128,8 @@ async def speech_to_text(
             "audio": {
                 "filename": audio_file.filename,
                 "size_bytes": file_size,
-                "format": file_ext
+                "format": file_ext,
+                "compressed": compress
             },
             "timestamp": datetime.utcnow().isoformat()
         }

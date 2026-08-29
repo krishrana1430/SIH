@@ -30,7 +30,8 @@ from backend.api.routes import (
     chat,
     locations,
     conversations,
-    sms_alerts
+    sms_alerts,
+    login
 )
 
 # Initialize database
@@ -55,6 +56,27 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
 
+    # Initialize alert monitoring
+    try:
+        from backend.services.alert_watcher import alert_watcher, initialize_default_monitoring
+        await initialize_default_monitoring()
+        await alert_watcher.start()
+        logger.info("Alert monitoring system started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start alert monitoring: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    logger.info("Shutting down WeatherGPT API...")
+    try:
+        from backend.services.alert_watcher import alert_watcher
+        await alert_watcher.stop()
+        logger.info("Alert monitoring system stopped successfully")
+    except Exception as e:
+        logger.error(f"Error stopping alert monitoring: {e}")
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
@@ -65,6 +87,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(login.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(ask.router, prefix="/api/v1", tags=["Ask (Main Endpoint)"])
 app.include_router(weather.router, prefix="/api/v1", tags=["Weather"])
 app.include_router(alerts.router, prefix="/api/v1", tags=["Alerts"])

@@ -2,11 +2,13 @@
 
 ## Overview
 
-WeatherGPT API implements a three-layer conversational weather query pipeline:
+WeatherGPT API implements a three-layer conversational weather query pipeline with user-provided LLM keys:
 
 1. **Intent + Entity Extraction** — LLM parses natural language → structured JSON
 2. **Retrieval** — Geocode location → fetch live Open-Meteo data → classify severity
 3. **Grounded Response** — LLM generates natural language from retrieved data (no hallucinations)
+
+**LLM Provider Model:** Two-tier fallback (Groq → Gemini) using encrypted user-provided API keys
 
 **Base URL:** `http://localhost:8000/api/v1`
 
@@ -310,20 +312,18 @@ GET /api/v1/ask/capabilities
     "Role-aware response generation",
     "Multilingual support (10 Indian languages)",
     "Severity classification",
-    "Three-tier LLM provider fallback"
+    "Two-tier LLM provider fallback (user-provided keys)"
   ],
   "llm_tiers": {
     "primary": {
-      "configured": true,
-      "model": "llama-3.1-70b-versatile"
+      "provider": "Groq",
+      "model": "openai/gpt-oss-20b",
+      "user_provided": true
     },
     "secondary": {
-      "configured": true,
-      "model": "gemini-1.5-flash"
-    },
-    "fallback": {
-      "configured": false,
-      "model": "llama3.2:1b"
+      "provider": "Gemini",
+      "model": "gemini-2.0-flash",
+      "user_provided": true
     },
     "last_tier_used": "primary"
   }
@@ -396,9 +396,9 @@ GET /api/v1/status
   "status": "operational",
   "integrations": {
     "llm": {
-      "primary": {"configured": true, "model": "llama-3.1-70b-versatile"},
-      "secondary": {"configured": true, "model": "gemini-1.5-flash"},
-      "fallback": {"configured": false, "model": "llama3.2:1b"},
+      "model": "user-provided-keys",
+      "primary": {"provider": "Groq", "model": "openai/gpt-oss-20b"},
+      "secondary": {"provider": "Gemini", "model": "gemini-2.0-flash"},
       "last_tier_used": "primary"
     },
     "weather_data": {
@@ -416,7 +416,7 @@ GET /api/v1/status
     "roles": 4,
     "data_source": "Open-Meteo (live)",
     "grounding": "enabled",
-    "fallback_chain": "3-tier"
+    "fallback_chain": "2-tier (user keys)"
   },
   "timestamp": "2026-08-27T11:00:00Z"
 }

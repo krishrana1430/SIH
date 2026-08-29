@@ -3,87 +3,65 @@
  * Centralized API calls to backend
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+import {
+  AskResponse,
+  WeatherData,
+  LoginResponse,
+  LoginStatusResponse,
+  ApiCapabilities,
+  ExampleQuery,
+} from './types'
 
-export interface AskResponse {
-  query: string;
-  intent: {
-    place: string;
-    language: string;
-    intent: string;
-    nationwide: boolean;
-    confidence: number;
-  };
-  weather: {
-    location: {
-      lat: number;
-      lng: number;
-      timezone: string;
-    };
-    current: {
-      temperature: number;
-      apparent_temperature: number;
-      humidity: number;
-      precipitation: number;
-      pressure: number;
-      wind_speed: number;
-      wind_direction: number;
-      weather_code: number;
-      time: string;
-    };
-    forecast: {
-      days: Array<{
-        date: string;
-        temperature_max: number;
-        temperature_min: number;
-        precipitation_sum: number;
-        precipitation_probability: number;
-        wind_speed_max: number;
-        weather_code: number;
-      }>;
-    };
-    data_source: string;
-    timestamp: string;
-  };
-  severity: {
-    severity: string;
-    alerts: string[];
-    alert_count: number;
-  };
-  response: string;
-  language: string;
-  role: string;
-  grounding_source: string;
-  llm_tier_used: string | null;
-  timestamp: string;
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
-export interface WeatherData {
-  location: {
-    lat: number;
-    lng: number;
-    city?: string;
-  };
-  current: any;
-  forecast?: any;
-  data_source: string;
-  timestamp: string;
+/**
+ * Login or create user
+ */
+export async function login(email: string, occupation: string): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE}/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, occupation }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Login failed' }));
+    throw new Error(error.detail || 'Login failed');
+  }
+
+  return response.json();
 }
 
 /**
  * Main conversational endpoint - ask a weather question
+ * Requires email for authentication and rate limiting
+ * Retrieves API keys from localStorage and sends them to backend
  */
 export async function askWeatherQuestion(
   query: string,
+  email: string,
   language: string = 'en',
   role: string = 'citizen'
 ): Promise<AskResponse> {
+  // Retrieve API keys from localStorage
+  const groqApiKey = localStorage.getItem('weathergpt_groq_key') || undefined;
+  const geminiApiKey = localStorage.getItem('weathergpt_gemini_key') || undefined;
+
   const response = await fetch(`${API_BASE}/ask`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ query, language, role }),
+    body: JSON.stringify({
+      query,
+      email,
+      language,
+      role,
+      groq_api_key: groqApiKey,
+      gemini_api_key: geminiApiKey
+    }),
   });
 
   if (!response.ok) {
@@ -134,7 +112,7 @@ export async function getDailyForecast(
   lat: number,
   lng: number,
   days: number = 7
-): Promise<any> {
+): Promise<WeatherData> {
   const response = await fetch(
     `${API_BASE}/weather/forecast/daily?lat=${lat}&lng=${lng}&days=${days}`
   );
@@ -152,7 +130,7 @@ export async function getDailyForecast(
 export async function getWeatherAlerts(
   lat: number,
   lng: number
-): Promise<any> {
+): Promise<{ alerts: any[] }> {
   const response = await fetch(
     `${API_BASE}/weather/alerts?lat=${lat}&lng=${lng}`
   );
@@ -167,7 +145,7 @@ export async function getWeatherAlerts(
 /**
  * Geocode a city name
  */
-export async function geocodeCity(city: string): Promise<any> {
+export async function geocodeCity(city: string): Promise<{ lat: number; lng: number; city: string }> {
   const response = await fetch(
     `${API_BASE}/weather/geocode?city=${encodeURIComponent(city)}`
   );
@@ -182,7 +160,7 @@ export async function geocodeCity(city: string): Promise<any> {
 /**
  * Get API capabilities
  */
-export async function getCapabilities(): Promise<any> {
+export async function getCapabilities(): Promise<ApiCapabilities> {
   const response = await fetch(`${API_BASE}/ask/capabilities`);
 
   if (!response.ok) {
@@ -195,7 +173,7 @@ export async function getCapabilities(): Promise<any> {
 /**
  * Get example queries
  */
-export async function getExampleQueries(): Promise<any> {
+export async function getExampleQueries(): Promise<{ examples: ExampleQuery[] }> {
   const response = await fetch(`${API_BASE}/ask/examples`);
 
   if (!response.ok) {
@@ -208,7 +186,7 @@ export async function getExampleQueries(): Promise<any> {
 /**
  * Get service status
  */
-export async function getServiceStatus(): Promise<any> {
+export async function getServiceStatus(): Promise<{ status: string; version: string; uptime: number }> {
   const response = await fetch(`${API_BASE}/status`);
 
   if (!response.ok) {

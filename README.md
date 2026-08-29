@@ -2,12 +2,21 @@
 
 AI-powered weather forecasting assistant with multilingual support and role-based responses for Smart India Hackathon 2026.
 
+> **Latest Update (v1.1.0)**: New black-white-yellow UI theme, auto-login with API key management, improved LLM response handling, and cleaner interface.
+
 ## 🌟 Features
 
+### User-Provided API Keys
+- **Bring Your Own Keys**: Users provide their own free Groq/Gemini API keys during registration
+- **Secure Storage**: API keys encrypted in database using Fernet encryption
+- **Auto-Login**: Returning users automatically logged in with stored credentials
+- **Two-Tier LLM**: Primary (Groq) → Secondary (Gemini) fallback for reliability
+
 ### Multi-Language Support
-- **7 Indian Languages**: English, Hindi, Tamil, Telugu, Kannada, Bengali, Marathi
-- Real-time language switching
+- **10 Indian Languages**: English, Hindi (हिन्दी), Tamil (தமிழ்), Telugu (తెలుగు), Bengali (বাংলা), Marathi (मराठी), Kannada (ಕನ್ನಡ), Gujarati (ગુજરાતી), Malayalam (മലയാളം), Punjabi (ਪੰਜਾਬੀ)
+- Real-time language switching with native script support
 - Natural language processing in user's preferred language
+- Full pipeline language preservation (input → processing → output)
 
 ### Role-Based Responses
 - **Citizen**: Everyday weather information for daily planning
@@ -15,15 +24,35 @@ AI-powered weather forecasting assistant with multilingual support and role-base
 - **Pilot**: Aviation weather data, visibility, wind conditions
 - **Emergency Services**: Critical weather alerts and risk assessment
 
-### Voice Capabilities
-- Voice input for hands-free queries
-- Text-to-speech responses
-- Supports multiple languages
+### Professional UI Design
+- **Black-White-Yellow Theme**: Clean, modern, accessible color scheme
+- **Dark Mode Support**: Seamless light/dark theme switching
+- **Optimized Dropdowns**: Clear backgrounds for location and language selectors
+- **Minimal Interface**: Focused on core functionality without clutter
 
-### SMS Alerts
-- Weather alert notifications via SMS
-- Configurable alert thresholds
-- Multi-language SMS support
+### Lightweight Authentication & Personalization
+- **Email-based login**: Simple authentication with encrypted API key storage
+- **Occupation-aware responses**: AI tailors answers based on your work (e.g., "Rice farmer in Punjab")
+- **Fair-use rate limiting**: 50 questions per user per 24 hours (configurable)
+- **SQLite for demo**: Easy upgrade path to PostgreSQL for production
+- 📖 **[Complete Authentication Documentation](./AUTHENTICATION.md)**
+
+### Voice Capabilities (Rural Accessibility)
+- **Speech-to-Text**: Groq Whisper for accurate transcription in 10 Indian languages
+- **Text-to-Speech**: Web Speech API (client-side) + OpenAI TTS (premium)
+- **Low-Bandwidth Optimized**: Opus compression (70-85% size reduction) for 2G/3G networks
+- **Hands-free Operation**: Complete voice-driven weather queries and responses
+- **Thin Adapter Pattern**: Voice → text → existing API → text → voice (no parallel backend)
+- 📖 **[Complete Voice Features Documentation](./VOICE_FEATURES.md)**
+
+### Extreme Weather Alerts & Early Warning System
+- **Server-side severity classification** with configurable thresholds
+- **Proactive monitoring** of weather conditions with automatic alert generation
+- **Multi-channel dissemination**: Push, SMS, Email, WhatsApp, Voice/IVR (architecture ready)
+- **5 severity levels**: Normal, Watch, Warning, Severe, Extreme
+- **Alert types**: Heatwave, Heavy Rain, High Wind, Frost/Freeze, Storm
+- **Real-time breach detection** and subscriber notification
+- **Multi-language SMS support**
 
 ### Real-Time Weather Data
 - Current conditions and forecasts
@@ -35,9 +64,10 @@ AI-powered weather forecasting assistant with multilingual support and role-base
 
 ### Prerequisites
 - Docker & Docker Compose installed
-- API keys (free):
-  - [Groq API Key](https://console.groq.com) (Primary LLM)
-  - [Gemini API Key](https://aistudio.google.com/app/apikey) (Fallback)
+- Users provide their own free API keys at first login:
+  - [Groq API Key](https://console.groq.com) (Primary LLM - fast)
+  - [Gemini API Key](https://aistudio.google.com/app/apikey) (Secondary LLM - fallback)
+- Keys are encrypted and stored per user in the database
 
 ### Setup
 
@@ -50,7 +80,7 @@ cd SIH
 2. **Configure environment:**
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys
+# Optional: Edit .env to add admin-level API keys (users will provide their own at login)
 ```
 
 3. **Start services:**
@@ -63,12 +93,19 @@ docker-compose up -d
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 
+5. **First-time user setup:**
+- Users provide their own free Groq and Gemini API keys at first login
+- Keys are encrypted and stored securely in the database, tied to their email
+- No API keys = no additional costs for deployment
+
 ## 🏗️ Architecture
 
 ```
 WeatherGPT
 ├── Backend (Python FastAPI)
-│   ├── LLM Chain (Groq → Gemini → Ollama)
+│   ├── LLM Chain (2-Tier Fallback: Groq → Gemini)
+│   │   ├── Tier 1: Groq (Primary - fast, free tier)
+│   │   └── Tier 2: Gemini (Fallback - reliable, free tier)
 │   ├── Weather Service (Open-Meteo API)
 │   ├── Voice Service (Groq Whisper)
 │   └── SMS Service (Twilio/Mock)
@@ -77,16 +114,30 @@ WeatherGPT
 │   ├── Weather Dashboard
 │   └── Voice Input/Output
 └── Database (SQLite)
-    └── Conversation History
+    └── Conversation History & Encrypted User Keys
 ```
+
+### LLM Two-Tier Fallback Strategy
+
+WeatherGPT implements a resilient two-tier LLM provider chain with **user-provided API keys**:
+
+- **Tier 1 (Primary)**: Groq API - Fast inference with generous free tier
+- **Tier 2 (Secondary)**: Google Gemini - Reliable fallback with free tier
+
+**Key Features:**
+- Users provide their own free API keys at first login
+- Keys are encrypted and stored per user email in the database
+- Automatic fallback from Groq → Gemini on rate limits or failures
+- Zero API costs for deployment (users bring their own keys)
+- Both providers offer generous free tiers suitable for demos and hackathons
 
 ## 🛠️ Tech Stack
 
 ### Backend
 - **Framework**: FastAPI (Python 3.11)
-- **LLM**: Groq, Google Gemini
+- **LLM**: Groq (primary), Google Gemini (fallback) - user-provided keys
 - **Weather Data**: Open-Meteo API
-- **Database**: SQLite
+- **Database**: SQLite with encrypted key storage
 - **Voice**: Groq Whisper (STT), Browser TTS
 
 ### Frontend
@@ -103,9 +154,25 @@ WeatherGPT
 
 - [Setup Guide](./SETUP.md) - Detailed setup instructions
 - [How to Run](./HOW_TO_RUN.md) - Quick start guide
+- [Authentication System](./AUTHENTICATION.md) - Login and user key management
+- **[Alert Dissemination Architecture](./ALERT_DISSEMINATION_ARCHITECTURE.md) - Extreme weather alert system** ⚡ NEW
 - [API Documentation](./docs/API.md) - Complete API reference
+- [Multilingual Testing](./docs/MULTILINGUAL_TESTING.md) - Language support testing guide
 - [Contributing](./CONTRIBUTING.md) - Contribution guidelines
 - [Documentation Index](./DOCUMENTATION_INDEX.md) - All docs
+
+## 🌐 Example Queries in Different Languages
+
+```
+English: "Will it rain in Mumbai tomorrow?"
+Hindi: "दिल्ली में कल बारिश होगी क्या?"
+Tamil: "சென்னையில் இன்று மழை பெய்யுமா?"
+Telugu: "హైదరాబాద్‌లో వాతావరణం ఎలా ఉంది?"
+Bengali: "কলকাতায় আজ আবহাওয়া কেমন?"
+Marathi: "पुण्यात आज पाऊस पडेल का?"
+```
+
+The system understands natural weather queries in all supported languages and responds in the same language.
 
 ## 🔧 Development
 
@@ -134,30 +201,88 @@ npm run dev
 Key environment variables (see `.env.example` for full list):
 
 ```bash
-# Primary LLM (Groq - fast, free)
-LLM_PRIMARY_API_KEY=your-groq-key
-LLM_PRIMARY_MODEL=openai/gpt-oss-20b
-
-# Secondary LLM (Gemini - fallback)
-LLM_SECONDARY_API_KEY=your-gemini-key
-LLM_SECONDARY_MODEL=gemini-2.0-flash
+# LLM Configuration (optional admin-level keys - users provide their own)
+LLM_PRIMARY_API_KEY=your-groq-key  # Optional: for system-level operations
+LLM_SECONDARY_API_KEY=your-gemini-key  # Optional: for system-level operations
 
 # API Configuration
 API_SECRET_KEY=your-secret-key
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ```
 
-## 🧪 Testing
+**Note**: Users provide their own API keys at first login, which are encrypted and stored in the database.
+
+## 🔑 User API Key Management
+
+### How It Works
+
+WeatherGPT uses a **user-provides-own-keys** model for zero-cost deployment:
+
+1. **First Login:**
+   - User enters their email and occupation
+   - System prompts for free Groq and Gemini API keys
+   - Keys are encrypted and stored in the database
+
+2. **Automatic Fallback:**
+   - Primary: User's Groq API key (fast)
+   - Fallback: User's Gemini API key (if Groq fails/rate-limited)
+
+3. **Security:**
+   - Keys are encrypted at rest using API_SECRET_KEY
+   - Keys are tied to user email (isolated per user)
+   - No centralized API costs
+
+### Getting Free API Keys
+
+Both providers offer generous free tiers:
+
+**Groq (Primary):**
+- Visit: https://console.groq.com
+- Free tier: Fast inference, suitable for demos
+- Models: GPT-OSS-20B and others
+
+**Gemini (Fallback):**
+- Visit: https://aistudio.google.com/app/apikey
+- Free tier: Generous rate limits
+- Model: Gemini 2.0 Flash
+
+### Testing the Fallback Chain
 
 ```bash
-# Backend tests
-python test_api.py
-python test_llm.py
-
-# Frontend tests
-cd frontend/web
-npm test
+# Test with user's keys via the chat endpoint
+curl -X POST http://localhost:8000/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello", "city": "Delhi", "email": "user@example.com"}'
 ```
+
+## 🧪 Testing
+
+Comprehensive automated test suite covering API contracts, LLM fallback, severity classification, and end-to-end integration.
+
+### Quick Start
+
+```bash
+# Run all tests
+pytest backend/tests/ -v
+
+# Run with coverage report
+pytest backend/tests/ -v --cov=backend --cov-report=html
+
+# Using test runner script
+python run_tests.py              # All tests
+python run_tests.py fast         # Fast unit tests only
+python run_tests.py coverage     # With coverage report
+```
+
+### Test Coverage
+
+- ✅ **API Contract Tests**: `/api/ask` endpoint validation with valid/invalid inputs
+- ✅ **LLM Fallback Tests**: Three-tier provider chain resilience (primary → secondary → fallback)
+- ✅ **Severity Classification**: Weather threshold boundary testing
+- ✅ **Integration Tests**: End-to-end query flow with database persistence
+- ✅ **Session Management**: User sessions, conversation history, preferences
+
+📖 **[Complete Testing Documentation](./TESTING.md)** - Detailed guide on running tests, fixtures, mocking strategy, and CI integration
 
 ## 📱 Features in Detail
 

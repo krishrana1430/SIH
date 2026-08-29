@@ -2,7 +2,7 @@
 
 Complete guide to all documentation in this repository.
 
-**Last Updated:** 2026-08-27
+**Last Updated:** 2026-08-29 (Ollama references removed, two-tier model implemented)
 
 ---
 
@@ -51,6 +51,15 @@ Complete guide to all documentation in this repository.
    - Error handling
    - Weather codes reference
 
+### For Testers
+
+7. **[docs/MULTILINGUAL_TESTING.md](docs/MULTILINGUAL_TESTING.md)** - Multilingual support testing
+   - Language support overview
+   - Automated test suite
+   - Manual testing checklist
+   - API testing examples
+   - Typography and encoding tests
+
 ---
 
 ## 📂 Documentation Structure
@@ -66,6 +75,7 @@ weather-gpt/
 │
 └── docs/
     ├── API.md                  # API reference
+    ├── MULTILINGUAL_TESTING.md # Language testing guide
     └── archive/                # Obsolete documentation
         ├── README.md           # Archive index
         ├── *_TEST_RESULTS.md  # Historical test results
@@ -120,6 +130,10 @@ weather-gpt/
 - http://localhost:8000/docs - Interactive API docs (Swagger UI)
 - http://localhost:8000/redoc - Alternative API docs (ReDoc)
 
+### Testing & Quality Assurance
+- [docs/MULTILINGUAL_TESTING.md](docs/MULTILINGUAL_TESTING.md) - Multilingual testing guide
+- `backend/tests/test_multilingual.py` - Automated language tests
+
 ### Development
 - [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute
 - [SETUP.md](SETUP.md#local-development-setup) - Development environment setup
@@ -169,6 +183,10 @@ See [docs/archive/README.md](docs/archive/README.md) for details.
 **API Users:**
 1. [docs/API.md](docs/API.md) - Complete API reference
 2. http://localhost:8000/docs - Interactive documentation
+
+**QA Engineers / Testers:**
+1. [docs/MULTILINGUAL_TESTING.md](docs/MULTILINGUAL_TESTING.md) - Language testing guide
+2. `pytest backend/tests/test_multilingual.py -v` - Run automated tests
 
 ### By Technology
 
@@ -226,9 +244,10 @@ If you can't find what you're looking for:
 | LOCAL_DEVELOPMENT.md | Local dev | Developers | ~85 lines |
 | CONTRIBUTING.md | Contribution guide | Contributors | ~270 lines |
 | docs/API.md | API reference | Developers, API users | ~500 lines |
-| DOCUMENTATION_INDEX.md | This file | Everyone | ~250 lines |
+| docs/MULTILINGUAL_TESTING.md | Testing guide | QA Engineers | ~350 lines |
+| DOCUMENTATION_INDEX.md | This file | Everyone | ~270 lines |
 
-**Total active documentation:** ~2,400 lines  
+**Total active documentation:** ~2,750 lines  
 **Archived documentation:** 14 files (historical reference)
 
 ---
@@ -251,7 +270,13 @@ For maintainers - keep documentation up to date:
 
 ## 🔄 Updates & Maintenance
 
-**Last major update:** 2026-08-27
+**Last major update:** 2026-08-29
+- Added multilingual testing guide (MULTILINGUAL_TESTING.md)
+- Created automated language test suite (test_multilingual.py)
+- Updated README with all 10 supported languages
+- Added language-specific example queries
+
+**Previous update:** 2026-08-27
 - Reorganized documentation structure
 - Created comprehensive SETUP.md
 - Archived obsolete documentation

@@ -8,6 +8,9 @@ from typing import Optional, List
 from datetime import datetime
 import logging
 
+from backend.services.climate_service import climate_service
+from backend.services.geocoding_service import geocoding_service
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -15,97 +18,66 @@ router = APIRouter(prefix="/climate", tags=["Climate"])
 
 
 @router.get("/")
-async def get_climate_info(
-    lat: Optional[float] = None,
-    lng: Optional[float] = None,
-    city: Optional[str] = None
-):
+async def get_climate_info():
     """
     Get climate service information.
-
-    Args:
-        lat: Latitude coordinate
-        lng: Longitude coordinate
-        city: City name
     """
     return {
         "service": "WeatherGPT Climate API",
-        "description": "30-year climate normals and historical weather data",
-        "data_sources": ["IMD Climate Normals", "NOAA NCEI", "ERA5 Reanalysis"],
-        "period": "1991-2020"
+        "description": "Historical weather data and climate trend analysis",
+        "data_sources": ["Open-Meteo Historical Archive"],
+        "available_endpoints": [
+            "/climate/historical - Historical weather data",
+            "/climate/trends - Temperature trends over years",
+            "/climate/monsoon-comparison - Monsoon onset analysis",
+            "/climate/extreme-events - Extreme weather events",
+            "/climate/comparison - Current vs historical comparison"
+        ]
     }
 
 
-@router.get("/normals")
-async def get_climate_normals(
+@router.get("/trends")
+async def get_temperature_trends(
     lat: Optional[float] = None,
     lng: Optional[float] = None,
     city: Optional[str] = None,
-    month: int = Query(default=None, ge=1, le=12),
-    year: int = Query(default=None),
-    period: str = Query(default="1991-2020")
+    years: int = Query(default=10, ge=1, le=20, description="Number of years to analyze")
 ):
     """
-    Get 30-year climate normals.
+    Analyze temperature trends over specified years.
 
     Args:
         lat: Latitude coordinate
         lng: Longitude coordinate
-        city: City name
-        month: Month (1-12), optional for all-year data
-        year: Reference year (optional)
-        period: Climate normal period
+        city: City name (will be geocoded if lat/lng not provided)
+        years: Number of years to analyze (1-20)
+
+    Returns:
+        Temperature trend analysis with yearly averages
     """
-    return {
-        "location": {
-            "lat": lat,
-            "lng": lng,
-            "city": city
-        },
-        "period": {
-            "start": "1991",
-            "end": "2020",
-            "year": year or 2020
-        },
-        "climate_normals": {
-            "temperature": {
-                "annual": {
-                    "avg": 28.5,
-                    "min": 20.0,
-                    "max": 37.0,
-                    "unit": "°C"
-                },
-                "monthly": [
-                    {
-                        "month": 1,
-                        "month_name": "January",
-                        "avg_temp": 24.0,
-                        "min_temp": 15.0,
-                        "max_temp": 32.0,
-                        "rainfall_mm": 10.0
-                    }
-                    for month_name in ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-                ]
-            },
-            "precipitation": {
-                "annual": {
-                    "avg": 1100.0,
-                    "unit": "mm"
-                },
-                "monthly": [
-                    {
-                        "month": i,
-                        "rainfall_mm": 50.0 if i in [6, 7, 8, 9] else 10.0
-                    }
-                    for i in range(1, 13)
-                ]
-            },
-            "humidity": {
-                "annual_avg": 65,
-                "unit": "%"
-            }
-        }
-    }
+    try:
+        # Geocode city if lat/lng not provided
+        if lat is None or lng is None:
+            if city:
+                geocode_result = await geocoding_service.geocode(city)
+                lat = geocode_result["lat"]
+                lng = geocode_result["lng"]
+            else:
+                raise HTTPException(status_code=400, detail="Either lat/lng or city must be provided")
+
+        trend_data = await climate_service.analyze_temperature_trend(
+            lat=lat,
+            lng=lng,
+            years=years
+        )
+
+        return trend_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to analyze temperature trends: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/historical")
@@ -113,191 +85,156 @@ async def get_historical_climate(
     lat: Optional[float] = None,
     lng: Optional[float] = None,
     city: Optional[str] = None,
-    start_year: int = Query(default=2010, ge=1950, le=2025),
-    end_year: int = Query(default=2025, ge=1950, le=2025),
-    metrics: List[str] = Query(default=["temperature", "precipitation", "extreme_events"])
+    start_date: str = Query(default=None, description="Start date YYYY-MM-DD"),
+    end_date: str = Query(default=None, description="End date YYYY-MM-DD"),
+    metrics: str = Query(default="temperature,precipitation", description="Comma-separated metrics")
 ):
     """
-    Get historical climate data.
+    Get historical weather data from Open-Meteo Archive API.
 
     Args:
         lat: Latitude coordinate
         lng: Longitude coordinate
-        city: City name
-        start_year: Start year
-        end_year: End year
-        metrics: List of metrics to retrieve
+        city: City name (will be geocoded if lat/lng not provided)
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        metrics: Comma-separated list (temperature, precipitation, wind, humidity)
+
+    Returns:
+        Historical weather data with daily values
     """
-    return {
-        "location": {
-            "lat": lat,
-            "lng": lng,
-            "city": city
-        },
-        "period": {
-            "start": start_year,
-            "end": end_year
-        },
-        "historical_data": {
-            "temperature": {
-                "annual_avg": [28.0, 28.2, 28.5, 28.8, 29.0, 29.2, 29.5, 29.3, 29.0, 28.7, 28.4, 28.1],
-                "trend": "+0.3°C per decade"
-            },
-            "precipitation": {
-                "annual_mm": [1000, 980, 1050, 1100, 1080, 1120, 1150, 1100, 1050, 1000, 950, 900],
-                "trend": "-2% per decade"
-            },
-            "extreme_events": {
-                "heatwaves_per_decade": [1.5, 2.0, 2.5],
-                "heavy_rain_days": [12, 15, 18]
-            }
-        }
-    }
+    try:
+        # Geocode city if lat/lng not provided
+        if lat is None or lng is None:
+            if city:
+                geocode_result = await geocoding_service.geocode(city)
+                lat = geocode_result["lat"]
+                lng = geocode_result["lng"]
+            else:
+                raise HTTPException(status_code=400, detail="Either lat/lng or city must be provided")
+
+        # Default to last year if dates not provided
+        if not start_date or not end_date:
+            from datetime import datetime, timedelta
+            end = datetime.now()
+            start = end - timedelta(days=365)
+            start_date = start.strftime("%Y-%m-%d")
+            end_date = end.strftime("%Y-%m-%d")
+
+        # Parse metrics
+        metrics_list = [m.strip() for m in metrics.split(",")]
+
+        historical_data = await climate_service.fetch_historical_weather(
+            lat=lat,
+            lng=lng,
+            start_date=start_date,
+            end_date=end_date,
+            metrics=metrics_list
+        )
+
+        return historical_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch historical climate data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/anomaly")
-async def get_climate_anomaly(
+@router.get("/monsoon-comparison")
+async def get_monsoon_comparison(
     lat: Optional[float] = None,
     lng: Optional[float] = None,
     city: Optional[str] = None,
-    year: int = Query(default=2024),
-    month: int = Query(default=None, ge=1, le=12)
+    year: int = Query(default=None, description="Year to analyze (default: current year)")
 ):
     """
-    Get climate anomaly data (deviation from 30-year normals).
+    Compare monsoon onset to historical average.
 
     Args:
         lat: Latitude coordinate
         lng: Longitude coordinate
-        city: City name
-        year: Year of anomaly
-        month: Month (1-12)
+        city: City name (will be geocoded if lat/lng not provided)
+        year: Year to analyze (default: current year)
+
+    Returns:
+        Monsoon onset comparison with historical data
     """
-    return {
-        "location": {
-            "lat": lat,
-            "lng": lng,
-            "city": city
-        },
-        "year": year,
-        "anomaly": {
-            "temperature": {
-                "deviation": 1.2,
-                "unit": "°C",
-                "description": "1.2°C above 30-year normal"
-            },
-            "precipitation": {
-                "deviation": -15.0,
-                "unit": "mm",
-                "description": "15mm below 30-year normal"
-            },
-            "extreme_heat_days": {
-                "deviation": 8,
-                "unit": "days",
-                "description": "8 more extreme heat days than normal"
-            }
-        }
-    }
+    try:
+        # Geocode city if lat/lng not provided
+        if lat is None or lng is None:
+            if city:
+                geocode_result = await geocoding_service.geocode(city)
+                lat = geocode_result["lat"]
+                lng = geocode_result["lng"]
+            else:
+                raise HTTPException(status_code=400, detail="Either lat/lng or city must be provided")
+
+        if year is None:
+            year = datetime.now().year
+
+        monsoon_data = await climate_service.compare_monsoon_onset(
+            lat=lat,
+            lng=lng,
+            current_year=year
+        )
+
+        return monsoon_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch monsoon comparison: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/seasonal")
-async def get_seasonal_analysis(
+@router.get("/extreme-events")
+async def get_extreme_events(
     lat: Optional[float] = None,
     lng: Optional[float] = None,
     city: Optional[str] = None,
-    season: str = Query(default="monsoon", choices=["monsoon", "summer", "winter", "retreat"])
+    year: int = Query(default=None, description="Year to analyze (default: current year)")
 ):
     """
-    Get seasonal climate analysis.
+    Analyze extreme weather events for a specific year.
 
     Args:
         lat: Latitude coordinate
         lng: Longitude coordinate
-        city: City name
-        season: Season type
+        city: City name (will be geocoded if lat/lng not provided)
+        year: Year to analyze (default: current year)
+
+    Returns:
+        Extreme weather event analysis
     """
-    seasonal_data = {
-        "monsoon": {
-            "months": [6, 7, 8, 9],
-            "name": "Monsoon Season",
-            "avg_rainfall_mm": 800,
-            "avg_temp": 29,
-            "characteristics": ["High humidity", "Heavy rainfall", "Lush greenery"]
-        },
-        "summer": {
-            "months": [3, 4, 5],
-            "name": "Summer Season",
-            "avg_rainfall_mm": 50,
-            "avg_temp": 34,
-            "characteristics": ["High temperatures", "Pre-monsoon showers", "High UV index"]
-        },
-        "winter": {
-            "months": [11, 12, 1, 2],
-            "name": "Winter Season",
-            "avg_rainfall_mm": 20,
-            "avg_temp": 25,
-            "characteristics": ["Mild weather", "Lower humidity", "Clear skies"]
-        },
-        "retreat": {
-            "months": [10],
-            "name": "Monsoon Retreat",
-            "avg_rainfall_mm": 150,
-            "avg_temp": 28,
-            "characteristics": ["Tropical cyclones", "Variable rainfall", "Transition period"]
-        }
-    }
+    try:
+        # Geocode city if lat/lng not provided
+        if lat is None or lng is None:
+            if city:
+                geocode_result = await geocoding_service.geocode(city)
+                lat = geocode_result["lat"]
+                lng = geocode_result["lng"]
+            else:
+                raise HTTPException(status_code=400, detail="Either lat/lng or city must be provided")
 
-    return {
-        "location": {
-            "lat": lat,
-            "lng": lng,
-            "city": city
-        },
-        "season": seasonal_data.get(season, seasonal_data["monsoon"])
-    }
+        if year is None:
+            year = datetime.now().year
+
+        extreme_data = await climate_service.analyze_extreme_events(
+            lat=lat,
+            lng=lng,
+            year=year
+        )
+
+        return extreme_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to analyze extreme events: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/index")
-async def get_climate_indices(
-    lat: Optional[float] = None,
-    lng: Optional[float] = None,
-    city: Optional[str] = None
-):
-    """
-    Get climate indices and agricultural metrics.
-
-    Args:
-        lat: Latitude coordinate
-        lng: Longitude coordinate
-        city: City name
-    """
-    return {
-        "location": {
-            "lat": lat,
-            "lng": lng,
-            "city": city
-        },
-        "indices": {
-            "growing_degree_days": {
-                "value": 3200,
-                "unit": "°C-days",
-                "description": "Cumulative GDD for crop planning"
-            },
-            "dry_spell_duration": {
-                "value": 15,
-                "unit": "days",
-                "description": "Average duration of dry spells"
-            },
-            "monsoon_onset": {
-                "date": "June 15",
-                "confidence": "high"
-            },
-            "monsoon_retreat": {
-                "date": "September 25",
-                "confidence": "medium"
-            }
-        }
-    }
 
 
 @router.get("/comparison")
@@ -305,27 +242,40 @@ async def get_climate_comparison(
     lat: Optional[float] = None,
     lng: Optional[float] = None,
     city: Optional[str] = None,
-    compare_with: str = "national_average"
+    metric: str = Query(default="temperature", description="Metric to compare (temperature or precipitation)")
 ):
     """
-    Compare local climate with national/region averages.
+    Compare current month's weather to historical average.
 
     Args:
         lat: Latitude coordinate
         lng: Longitude coordinate
-        city: City name
-        compare_with: Comparison target
+        city: City name (will be geocoded if lat/lng not provided)
+        metric: Metric to compare (temperature, precipitation)
+
+    Returns:
+        Current vs historical comparison data
     """
-    return {
-        "location": {
-            "lat": lat,
-            "lng": lng,
-            "city": city
-        },
-        "comparison": {
-            "target": compare_with,
-            "temperature_difference": "+2.3°C",
-            "rainfall_difference": "-12%",
-            "description": "Warmer and drier than national average"
-        }
-    }
+    try:
+        # Geocode city if lat/lng not provided
+        if lat is None or lng is None:
+            if city:
+                geocode_result = await geocoding_service.geocode(city)
+                lat = geocode_result["lat"]
+                lng = geocode_result["lng"]
+            else:
+                raise HTTPException(status_code=400, detail="Either lat/lng or city must be provided")
+
+        comparison = await climate_service.compare_current_to_historical(
+            lat=lat,
+            lng=lng,
+            metric=metric
+        )
+
+        return comparison
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch climate comparison: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

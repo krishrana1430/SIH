@@ -19,7 +19,7 @@ Complete setup and deployment guide for WeatherGPT.
 **Prerequisites:**
 - Docker Desktop installed and running
 - 4GB RAM minimum
-- Groq API key (free from https://console.groq.com)
+- Users provide their own free API keys at first login (Groq and Gemini)
 
 **Steps:**
 
@@ -31,8 +31,8 @@ Complete setup and deployment guide for WeatherGPT.
 
 2. **Configure environment**
    ```bash
-   cp .env.docker .env
-   nano .env  # Add your Groq API key
+   cp .env.example .env
+   # Optional: Add admin-level keys (users will provide their own at login)
    ```
 
 3. **Start the application**
@@ -140,30 +140,25 @@ Frontend will run on http://localhost:3000
 
 ## Environment Configuration
 
-### Required Variables
+### User-Provided API Keys Model
+
+WeatherGPT uses a **user-provides-own-keys** approach:
+
+- Users enter their free API keys (Groq + Gemini) at first login
+- Keys are encrypted and stored in the database, tied to user email
+- Automatic fallback: Groq (primary) → Gemini (secondary)
+- Zero API costs for deployment
+
+**Get free API keys:**
+- **Groq**: https://console.groq.com (fast, free tier)
+- **Gemini**: https://aistudio.google.com/app/apikey (reliable, free tier)
+
+### Environment Variables
 
 ```env
-# LLM Integration (Required)
-LLM_PRIMARY_API_KEY=your-groq-api-key-here
-```
-
-Get your Groq API key:
-1. Visit https://console.groq.com
-2. Sign up for a free account
-3. Navigate to API Keys section
-4. Create a new API key
-5. Copy and paste into .env file
-
-### Optional Variables
-
-```env
-# Secondary LLM (Recommended for fallback)
-LLM_SECONDARY_API_KEY=your-gemini-api-key-here
-LLM_SECONDARY_MODEL=gemini-1.5-flash
-
-# Ollama Local LLM (Optional, for offline capability)
-LLM_FALLBACK_BASE_URL=http://ollama:11434/v1
-LLM_FALLBACK_MODEL=llama3.2:1b
+# Optional Admin-Level Keys (for system operations)
+LLM_PRIMARY_API_KEY=your-groq-api-key-here  # Optional
+LLM_SECONDARY_API_KEY=your-gemini-api-key-here  # Optional
 
 # Database Configuration
 DATABASE_URL=sqlite:///./data/weathergpt.db  # SQLite (default)

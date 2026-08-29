@@ -18,20 +18,28 @@ logger = logging.getLogger(__name__)
 ROLE_PROMPTS = {
     "citizen": """You are WeatherGPT, a friendly weather assistant. Talk like a friend explaining weather to another friend.
 
-    IMPORTANT LANGUAGE RULES:
+    IMPORTANT FORMATTING RULES:
+    - Keep responses CONCISE and focused on what the user asked
     - Use simple, everyday language - no technical jargon
+    - Format responses with clear paragraphs (use double line breaks between sections)
+    - Use **bold** for important points (like warnings or key conditions)
+    - Use bullet points (with - ) only when listing 3+ distinct items
     - Say "pressure is normal/high/low" instead of "hPa" numbers
     - Don't mention exact wind directions in degrees (like "270°"), just say "from the west" or "light winds"
     - Focus on what the weather means for daily life, not just the numbers
     - Be conversational and warm, like chatting with a neighbor
-    - Instead of listing data, tell a story about the weather
+
+    RESPONSE LENGTH GUIDELINES:
+    - For current weather: 2-3 short paragraphs MAX
+    - For forecasts: Brief summary + key days only
+    - NEVER dump all available data - prioritize what matters most
 
     EXAMPLES OF GOOD RESPONSES:
     ❌ BAD: "Temperature: 27°C (feels like 29°C), Humidity: 90%, Wind: 6 km/h from 135°, Pressure: 1013 hPa"
     ✅ GOOD: "It's a warm evening around 27°C, though it might feel a bit warmer. The humidity is quite high, so it could feel sticky. Winds are light and calm."
 
-    ❌ BAD: "Precipitation probability: 80%, Temperature range: 22-28°C"
-    ✅ GOOD: "There's a good chance of rain today, so grab an umbrella! Temperatures will be comfortable in the mid-20s."
+    ❌ BAD: Multiple paragraphs with asterisks, sections for "studying outside", "commuting", "homework" when not asked
+    ✅ GOOD: "Right now it's 24°C but feels like 28°C due to 90% humidity. The sky's overcast with light winds from the west.\n\nExpect rain tonight and through the weekend, so keep an umbrella handy!"
 
     Use ONLY the data provided. Highlight any weather you should prepare for.""",
 
@@ -68,7 +76,9 @@ class ChatService:
     async def extract_intent(
         self,
         query: str,
-        language: str = "en"
+        language: str = "en",
+        user_groq_key: Optional[str] = None,
+        user_gemini_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Step 1: Extract intent and entities from natural language query.
@@ -82,10 +92,15 @@ class ChatService:
         Args:
             query: User's natural language question
             language: User's preferred language (from request)
+            user_groq_key: User's Groq API key (optional)
+            user_gemini_key: User's Gemini API key (optional)
 
         Returns:
             Dict with keys: place, language, intent, nationwide, confidence
         """
+        logger.info(f"🔍 INTENT EXTRACTION START - Query: '{query}'")
+        logger.info(f"🔑 API Keys Available: Groq={bool(user_groq_key)}, Gemini={bool(user_gemini_key)}")
+
         system_prompt = (
             f"You are a weather query understanding system. "
             f"You detect the user's language, extract the location they're asking about, "
@@ -108,20 +123,25 @@ class ChatService:
         ]
 
         try:
+            logger.info("📞 Calling LLM for intent extraction...")
             response = await self.llm.call_llm(
                 messages=messages,
+                groq_api_key=user_groq_key,
+                gemini_api_key=user_gemini_key,
                 temperature=0.3,
                 max_tokens=200,
                 json_mode=True
             )
 
+            logger.info(f"✅ LLM returned response: {response[:200]}")
             result = json.loads(response)
             result["confidence"] = 0.9
-            logger.info(f"Intent extracted: {result}")
+            logger.info(f"✅ Intent extracted successfully: {result}")
             return result
 
         except (json.JSONDecodeError, KeyError, Exception) as e:
-            logger.warning(f"Intent extraction failed: {e}, falling back to keyword matching")
+            logger.error(f"❌ Intent extraction failed with error: {type(e).__name__}: {str(e)}")
+            logger.warning(f"⚠️ Falling back to keyword matching")
             return self._fallback_intent_extraction(query, language)
 
     def _fallback_intent_extraction(self, query: str, language: str) -> Dict[str, Any]:
@@ -159,13 +179,45 @@ class ChatService:
             "confidence": 0.6
         }
 
+    def _is_greeting_or_simple_query(self, query: str) -> bool:
+        """Detect if the query is a simple greeting or introduction."""
+        query_lower = query.lower().strip()
+
+        # Simple greetings
+        greetings = [
+            'hi', 'hello', 'hey', 'hola', 'namaste', 'good morning', 'good afternoon',
+            'good evening', 'greetings', 'howdy', 'sup', 'yo', 'hiya'
+        ]
+
+        # Introduction queries
+        intros = [
+            'who are you', 'what are you', 'what can you do', 'help', 'what is this',
+            'tell me about yourself', 'introduce yourself', 'your name'
+        ]
+
+        # Check if query is just a greeting (with optional punctuation)
+        clean_query = query_lower.rstrip('!?.,')
+
+        if clean_query in greetings:
+            return True
+
+        # Check if it's an introduction question
+        for intro in intros:
+            if intro in query_lower:
+                return True
+
+        return False
+
     async def generate_response(
         self,
         query: str,
         intent: Dict[str, Any],
         weather_data: Dict[str, Any],
         role: str = "citizen",
-        language: str = "en"
+        language: str = "en",
+        occupation: Optional[str] = None,
+        user_groq_key: Optional[str] = None,
+        user_gemini_key: Optional[str] = None
     ) -> str:
         """
         Step 2: Generate grounded response using retrieved weather data.
@@ -179,14 +231,26 @@ class ChatService:
             weather_data: Weather data from Open-Meteo (including severity)
             role: User role for role-aware output
             language: Response language
+            occupation: User's occupation for personalization (optional)
+            user_groq_key: User's Groq API key (optional)
+            user_gemini_key: User's Gemini API key (optional)
 
         Returns:
             Natural language weather response
         """
+        logger.info(f"🎯 RESPONSE GENERATION START - Query: '{query}'")
+        logger.info(f"🔑 API Keys Available: Groq={bool(user_groq_key)}, Gemini={bool(user_gemini_key)}")
+        logger.info(f"👤 Role: {role}, Occupation: {occupation}, Language: {language}")
+
         role_prompt = ROLE_PROMPTS.get(role, ROLE_PROMPTS["citizen"])
+
+        # Add occupation-based personalization if provided
+        if occupation:
+            role_prompt += f"\n\nUser context: The person asking is a {occupation}. Tailor your response to be relevant to their work and concerns."
 
         # Format grounding data for the LLM
         grounding = self._format_grounding(weather_data, intent)
+        logger.info(f"📊 Grounding data prepared: {len(grounding)} characters")
 
         # Multilingual instruction
         language_prompt = ""
@@ -200,22 +264,34 @@ class ChatService:
         ]
 
         try:
+            logger.info("📞 Calling LLM for response generation...")
             response = await self.llm.call_llm(
                 messages=messages,
+                groq_api_key=user_groq_key,
+                gemini_api_key=user_gemini_key,
                 temperature=0.7,
-                max_tokens=500,
+                max_tokens=1500,  # Increased from 500 to allow complete 7-day forecasts
                 json_mode=False
             )
 
+            logger.info(f"✅ LLM returned response: {len(response)} characters")
+            logger.info(f"🎯 LLM tier used: {self.llm.last_tier_used}")
             return response.strip()
 
         except Exception as e:
-            logger.error(f"Response generation failed: {e}")
+            logger.error(f"❌ Response generation failed with error: {type(e).__name__}: {str(e)}")
+            logger.error(f"📋 Full error details:", exc_info=True)
+            logger.warning(f"⚠️ Falling back to template response")
             return self._fallback_response(query, intent, weather_data, role, language)
 
     def _format_grounding(self, weather_data: Dict[str, Any], intent: Dict[str, Any]) -> str:
         """Format weather data as grounding context for the LLM with user-friendly descriptions."""
         lines = []
+
+        # Check if this is historical/climate data
+        data_type = weather_data.get("data_type")
+        if data_type:
+            return self._format_historical_grounding(weather_data, intent)
 
         current = weather_data.get("current", {})
 
@@ -334,6 +410,35 @@ class ChatService:
         except:
             return "unknown"
 
+    def _generate_greeting_response(
+        self,
+        query: str,
+        role: str,
+        language: str,
+        occupation: Optional[str] = None
+    ) -> str:
+        """Generate a brief, friendly greeting response without weather data dump."""
+        query_lower = query.lower().strip()
+
+        # Introduction/help queries
+        if any(word in query_lower for word in ['who', 'what', 'help', 'about']):
+            if occupation:
+                return f"Hi! I'm WeatherGPT, your AI weather assistant. I provide personalized weather insights for {occupation}s. Ask me about current conditions, forecasts, or weather alerts!"
+            else:
+                return "Hi! I'm WeatherGPT, your AI weather assistant. I can help you with current conditions, forecasts, weather alerts, and personalized insights. What would you like to know?"
+
+        # Simple greetings
+        greeting_responses = [
+            "Hello! How can I help you with the weather today?",
+            "Hi there! What weather information do you need?",
+            "Hey! Ask me anything about the weather.",
+            "Hello! I'm here to help with weather forecasts and conditions."
+        ]
+
+        # Return a simple greeting
+        import random
+        return random.choice(greeting_responses)
+
     def _fallback_response(
         self,
         query: str,
@@ -422,6 +527,60 @@ class ChatService:
             "pa": "ਪੰਜਾਬੀ (Punjabi)",
         }
         return names
+
+    def _format_historical_grounding(self, weather_data: Dict[str, Any], intent: Dict[str, Any]) -> str:
+        """Format historical/climate data as grounding context for the LLM."""
+        lines = []
+        data_type = weather_data.get("data_type")
+
+        if data_type == "monsoon_comparison":
+            lines.append("Monsoon Onset Analysis:")
+            current = weather_data.get("current", {})
+            historical = weather_data.get("historical", {})
+            lines.append(f"  Current year ({current.get('year')}): {current.get('onset_date', 'not yet detected')}")
+            lines.append(f"  Historical average ({historical.get('period')}): {historical.get('average_onset_date', 'N/A')}")
+            lines.append(f"  Comparison: {weather_data.get('comparison', 'N/A')}")
+
+        elif data_type == "temperature_trend":
+            period = weather_data.get("period", {})
+            trend = weather_data.get("trend", {})
+            lines.append(f"Temperature Trend Analysis ({period.get('start_year')}-{period.get('end_year')}):")
+            lines.append(f"  Trend: {trend.get('trend', 'N/A')}")
+            lines.append(f"  Change per decade: {trend.get('change_per_decade', 'N/A')}°C")
+
+            yearly = weather_data.get("yearly_averages", [])
+            if yearly:
+                lines.append(f"\n  Recent yearly averages:")
+                for year_data in yearly[-5:]:  # Last 5 years
+                    lines.append(f"    {year_data.get('year')}: {year_data.get('avg_temperature', 'N/A')}°C average")
+
+        elif data_type == "current_vs_historical":
+            month = weather_data.get("month", {})
+            lines.append(f"Current vs Historical Comparison for {month.get('name', 'N/A')} {month.get('year')}:")
+            lines.append(f"  Current month average: {weather_data.get('current_average', 'N/A')}°C")
+            lines.append(f"  Historical average: {weather_data.get('historical_average', 'N/A')}°C")
+            lines.append(f"  Comparison: {weather_data.get('comparison', 'N/A')}")
+
+        elif data_type == "extreme_events":
+            year = weather_data.get("year")
+            temp_extremes = weather_data.get("temperature_extremes", {})
+            precip_extremes = weather_data.get("precipitation_extremes", {})
+
+            lines.append(f"Extreme Weather Events in {year}:")
+            lines.append(f"\n  Temperature Extremes:")
+            lines.append(f"    Hottest day: {temp_extremes.get('hottest_day_temp', 'N/A')}°C")
+            lines.append(f"    Coldest day: {temp_extremes.get('coldest_day_temp', 'N/A')}°C")
+            lines.append(f"    Extreme heat days (≥40°C): {temp_extremes.get('extreme_heat_days', 0)} days")
+            lines.append(f"    Cold days (≤10°C): {temp_extremes.get('cold_days', 0)} days")
+
+            lines.append(f"\n  Precipitation Extremes:")
+            lines.append(f"    Total annual rainfall: {precip_extremes.get('total_annual_rainfall', 'N/A')} mm")
+            lines.append(f"    Maximum daily rainfall: {precip_extremes.get('max_daily_rainfall', 'N/A')} mm")
+            lines.append(f"    Heavy rain days (≥50mm): {precip_extremes.get('heavy_rain_days', 0)} days")
+            lines.append(f"    Very heavy rain days (≥100mm): {precip_extremes.get('very_heavy_rain_days', 0)} days")
+
+        lines.append(f"\nData source: {weather_data.get('data_source', 'Open-Meteo Historical Archive')}")
+        return "\n".join(lines)
 
     def get_roles(self) -> List[Dict[str, str]]:
         """Get available user roles for role-aware output."""

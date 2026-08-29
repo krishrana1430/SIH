@@ -45,26 +45,26 @@ export default function LanguageSelector({ onLanguageChange }: LanguageSelectorP
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full justify-between">
+        <Button variant="outline" className="w-full justify-between bg-white dark:bg-gray-900 border-gray-200 dark:border-yellow-500/20 hover:bg-yellow-50 dark:hover:bg-yellow-900/10">
           <div className="flex items-center gap-2">
-            <Languages className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">
-              <span className="text-lg">🇺🇸</span> Language
+            <Languages className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm text-gray-900 dark:text-white">
+              <span className="text-lg">{languages.find(l => l.code === selectedLang)?.flag || '🇺🇸'}</span> Language
             </span>
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent className="w-[300px] p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-yellow-500/20" align="start">
         <Select value={selectedLang} onValueChange={handleLanguageChange}>
-          <SelectTrigger className="w-full justify-between">
+          <SelectTrigger className="w-full justify-between bg-white dark:bg-gray-900 border-gray-200 dark:border-yellow-500/20">
             <SelectValue placeholder="Select language" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-yellow-500/20">
             {languages.map((lang) => (
-              <SelectItem key={lang.code} value={lang.code}>
+              <SelectItem key={lang.code} value={lang.code} className="hover:bg-yellow-50 dark:hover:bg-yellow-900/10 focus:bg-yellow-50 dark:focus:bg-yellow-900/10">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{lang.flag}</span>
-                  <span>{lang.name}</span>
+                  <span className="text-gray-900 dark:text-white">{lang.name}</span>
                 </div>
               </SelectItem>
             ))}
